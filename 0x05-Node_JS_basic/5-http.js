@@ -1,68 +1,87 @@
 const http = require('http');
-const fs = require('fs');
+const fs = require('fs').promises;
 
-// Read the database file asynchronously
-function readFileAsync(file) {
-  return new Promise((resolve, reject) => {
-    fs.readFile(file, 'utf8', (error, data) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(data);
+async function countStudents(filepath) {
+  try {
+    const csv = await fs.readFile(filepath, { encoding: 'utf8' });
+    const headerArray = csv.split(/\r?\n|\n/);
+    const headers = headerArray[0].split(',');
+
+    const dictList = [];
+    const noHeaderArray = headerArray.slice(1);
+    for (let i = 0; i < noHeaderArray.length; i++) {
+      const data = noHeaderArray[i].split(',');
+      if (data.length === headers.length) {
+        const row = {};
+        for (let j = 0; j < headers.length; j++) {
+          row[headers[j].trim()] = data[j].trim();
+        }
+        dictList.push(row);
+      }
+    }
+
+    let countCS = 0;
+    let countSWE = 0;
+    const studentsCS = [];
+    const studentsSWE = [];
+
+    dictList.forEach((element) => {
+      if (element.field === 'CS') {
+        countCS++;
+        studentsCS.push(element.firstname);
+      } else if (element.field === 'SWE') {
+        countSWE++;
+        studentsSWE.push(element.firstname);
       }
     });
-  });
-}
 
-// Parse the CSV data and return the list of valid students
-function parseStudents(data) {
-  const lines = data.split('\n');
-  const students = [];
+    const countStudents = countCS + countSWE;
 
-  for (const line of lines) {
-    const values = line.trim().split(',');
-    const name = values[0];
-
-    if (name) {
-      students.push(name);
-    }
+    return {
+      countStudents,
+      countCS,
+      countSWE,
+      studentsCS,
+      studentsSWE,
+    };
+  } catch (err) {
+    throw new Error('Cannot load the database');
   }
-
-  return students;
 }
 
-// Create the HTTP server
+const pathToDB = process.argv[2];
+const hostname = '127.0.0.1';
+const port = 1245;
+
 const app = http.createServer((req, res) => {
   if (req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Hello Holberton School!\n');
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end('Hello Holberton School!');
   } else if (req.url === '/students') {
-    const databaseFile = process.argv[2];
-
-    readFileAsync(databaseFile)
-      .then((data) => {
-        const students = parseStudents(data);
-        const response = `This is the list of our students\nNumber of students: ${students.length}\nList: ${students.join(', ')}\n`;
-
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end(response);
+    countStudents(pathToDB)
+      .then(({ countStudents, countCS, countSWE, studentsCS, studentsSWE }) => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'text/plain');
+        res.write('This is the list of our students\n');
+        res.write(`Number of students: ${countStudents}\n`);
+        res.write(`Number of students in CS: ${countCS}. List: ${studentsCS.join(', ')}\n`);
+        res.write(`Number of students in SWE: ${countSWE}. List: ${studentsSWE.join(', ')}\n`);
+        res.end();
       })
-      .catch((error) => {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
-        res.end('Internal Server Error\n');
-        console.error(error);
+      .catch(() => {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('Error: Cannot load the database');
+        throw new Error('Cannot load the database');
       });
   } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found\n');
+    res.statusCode = 404;
+    res.setHeader('Content-Type', 'text/plain');
+    res.end('Not Found');
   }
 });
 
-// Start the HTTP server on port 1245
-const port = 1245;
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-});
+app.listen(port, hostname);
 
-// Export the app
 module.exports = app;
