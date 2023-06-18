@@ -1,29 +1,38 @@
 const http = require('http');
-const countStudents = require('./3-read_file_async');
+const readFileAsync = require('./3-read_file_async');
 
-const hostname = '127.0.0.1';
-const port = 1245;
-
-const app = http.createServer(async (req, res) => {
-  res.statusCode = 200;
-  if (req.url === '/') {
-    res.end('Hello Holberton School!');
-  } else if (req.url === '/students') {
-    let dbInfo = 'This is the list of our students\n';
-    await countStudents(process.argv[2])
-      .then((msg) => {
-        dbInfo += msg;
-        res.end(dbInfo);
-      })
-      .catch((err) => {
-        dbInfo += err.message;
-        res.end(dbInfo);
+const app = http.createServer((req, res) => {
+  switch (req.url) {
+    case '/':
+      res.writeHead(200, { 'Content-Type': 'text/plain' });
+      res.write('Hello Holberton School!');
+      res.end();
+      break;
+    case '/students':
+      readFileAsync('./database.csv', (err, students) => {
+        if (err) {
+          res.writeHead(500, { 'Content-Type': 'text/plain' });
+          res.write(err.message);
+          res.end();
+        } else {
+          res.writeHead(200, { 'Content-Type': 'text/plain' });
+          res.write('This is the list of our students\n');
+          res.write(`Number of students: ${students.length}\n`);
+          students.forEach((student) => {
+            res.write(`Number of students in ${student.program}: ${student.count}. List: ${student.students.join(', ')}\n`);
+          });
+          res.end();
+        }
       });
+      break;
+    default:
+      res.writeHead(404, { 'Content-Type': 'text/plain' });
+      res.write('404 Not Found');
+      res.end();
+      break;
   }
 });
 
-app.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}`);
-});
+app.listen(1245);
 
 module.exports = app;
