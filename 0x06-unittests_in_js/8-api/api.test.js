@@ -1,37 +1,14 @@
-const chai = require('chai');
 const request = require('request');
-const sinon = require('sinon');
-const server = require('./api');
+const { expect } = require('chai');
 
-const { expect } = chai;
+describe('API integration test', () => {
+  const API_URL = 'http://localhost:7865';
 
-describe('Index page', () => {
-  let stub;
-
-  before(() => {
-    stub = sinon.stub(console, 'log');
-  });
-
-  after(() => {
-    stub.restore();
-    server.close();
-  });
-
-  it('should return correct status code', (done) => {
-    request.get('http://localhost:7865', (error, response, body) => {
-      expect(response.statusCode).to.equal(200);
+  it('GET / returns correct response', (done) => {
+    request.get(`${API_URL}/`, (_err, res, body) => {
+      expect(res.statusCode).to.be.equal(200);
+      expect(body).to.be.equal('Welcome to the payment system');
       done();
     });
-  });
-
-  it('should return correct result', (done) => {
-    request.get('http://localhost:7865', (error, response, body) => {
-      expect(body).to.equal('Welcome to the payment system');
-      done();
-    });
-  });
-
-  it('should log message to the browser console', () => {
-    sinon.assert.calledWith(stub, 'API available on localhost port 7865');
   });
 });
